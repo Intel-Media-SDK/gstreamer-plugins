@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,50 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#include "mfx_gst_bitstream_buffer.h"
+
+#undef MFX_DEBUG_MODULE_NAME
+#define MFX_DEBUG_MODULE_NAME "mfxgstbuffer"
+
+bool mfxGstBufferRef::map(GstMapFlags purpose)
+{
+  MFX_DEBUG_TRACE_FUNC;
+
+  MFX_DEBUG_TRACE_P(buffer_);
+  if (mem_) {
+    MFX_DEBUG_TRACE_MSG("I am not gonna to map it twice!");
+    return false;
+  }
+  MFX_DEBUG_TRACE_I32(gst_buffer_n_memory(buffer_));
+  mem_ = gst_buffer_peek_memory(buffer_, 0);
+  if (!mem_) {
+    MFX_DEBUG_TRACE_MSG("failed: gst_buffer_peek_memory");
+    return false;
+  }
+  if (!gst_memory_map(mem_, &meminfo_, purpose)) {
+    MFX_DEBUG_TRACE_MSG("failed: gst_memory_map");
+    return false;
+  }
+  MFX_DEBUG_TRACE_I32(mem_->align);
+  MFX_DEBUG_TRACE_I32(mem_->offset);
+  MFX_DEBUG_TRACE_I32(mem_->maxsize);
+  MFX_DEBUG_TRACE_I32(mem_->size);
+
+  MFX_DEBUG_TRACE_P(meminfo_.data);
+  MFX_DEBUG_TRACE_I32(meminfo_.maxsize);
+  MFX_DEBUG_TRACE_I32(meminfo_.size);
+  return true;
+}
+
+void mfxGstBufferRef::unmap()
+{
+  MFX_DEBUG_TRACE_FUNC;
+  if (mem_) {
+    gst_memory_unmap(mem_, &meminfo_);
+    mem_ = NULL;
+    memset(&meminfo_, 0, sizeof(meminfo_));
+  }
+}

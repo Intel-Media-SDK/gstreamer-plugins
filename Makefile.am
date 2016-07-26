@@ -1,0 +1,5 @@
+ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+
+AUTOMAKE_OPTIONS = foreign
+
+SUBDIRS = utils src plugins

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -e
+
+echo "Run from mdp_msdk-gst-plugins package root!"
+
+function finish {
+  # DON'T insert any commands here!!
+  if [ $? -eq 0 ]; then
+    echo
+    echo "[PASSED]"
+  else
+    echo
+    echo "[FAILED]"
+    echo "failed command:"
+    echo "  $BASH_COMMAND"
+    echo "environment:"
+    echo "  MFX_HOME=$MFX_HOME"
+    echo "  GST_PLUGIN_PATH_1_0=$GST_PLUGIN_PATH_1_0"
+    echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+  fi
+}
+trap finish EXIT
+
+export GST_PLUGIN_PATH_1_0=`pwd`/plugins/.libs
+
+PLUGINS=" \
+  mfx_gst_h264ve \
+  "
+
+for i in $PLUGINS; do
+  gst-inspect-1.0 --exists mfx_gst_h264ve; echo $?
+  gst-inspect-1.0 --plugin mfx_gst_h264ve
+  gst-inspect-1.0 mfx_gst_h264ve
+done

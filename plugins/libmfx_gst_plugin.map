@@ -1,0 +1,6 @@
+LIBMFX_GST_PLUGIN {
+  global:
+    gst_plugin_desc;
+  local:
+    *;
+};

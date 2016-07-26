@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,39 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#ifndef __VAAPI_UTILS_X11_H__
+#define __VAAPI_UTILS_X11_H__
+
+#if defined(LIBVA_X11_SUPPORT)
+
+#include <va/va_x11.h>
+#include "vaapi_utils.h"
+
+
+class X11LibVA : public CLibVA
+{
+public:
+    X11LibVA(void);
+    virtual ~X11LibVA(void);
+
+    void *GetXDisplay(void) { return m_display;}
+
+
+    MfxLoader::XLib_Proxy  & GetX11() { return m_x11lib; }
+    MfxLoader::VA_X11Proxy & GetVAX11() { return m_vax11lib; }
+
+protected:
+    Display* m_display;
+    MfxLoader::XLib_Proxy   m_x11lib;
+    MfxLoader::VA_X11Proxy  m_vax11lib;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(X11LibVA);
+};
+
+#endif // #if defined(LIBVA_X11_SUPPORT)
+
+#endif // #ifndef __VAAPI_UTILS_X11_H__

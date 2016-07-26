@@ -1,0 +1,256 @@
+Overview
+========
+GStreamer-MediaSDK is GStreamer plugins for Intel(R) Media SDK that takes advantage of Intel(R) Media SDK API
+to execute video decode, video encode and video post-processing.
+
+License
+========
+
+GStreamer-MediaSDK is distributed under BSD-3 Clause license.
+See LICENSE and NOTICE files in the root folder for details.
+
+Prerequisites
+=============
+
+- Media SDK 1.* or higher
+- GStreamer 1.x
+
+Operating System        | Packages                      | Requirement | Notes
+---------------------------------------------------------------------------------
+CentOS 7.1+             | gstreamer1                    | Mandatory   | Runtime package
+                        | gstreamer1-devel              | Mandatory   | Development files
+                        | gstreamer1-plugins-base       | Mandatory   | Helper libraries
+                        | gstreamer1-plugins-base-devel | Mandatory   | Development files
+                        | gstreamer1-plugins-good       | Optional    | v4l2src, qtmux, etc
+                        | gstreamer1-plugins-bad        | Optional    | videoparse, glimagesink, etc
+
+Install packages with:
+ - CentOS 7.1+ with 'sudo yum install <package>'
+
+
+Building & Installation
+=======================
+
+Build and install using usual autotools approach:
+./autogen.sh
+make
+sudo make install
+
+Media SDK package is expected to be found in the directory pointed to by MFX_HOME
+environment variable. You can use it as:
+MFX_HOME=/path/to/mediasdk ./autogen.sh
+or
+MFX_HOME=/path/to/mediasdk ./configure
+
+
+Plugins Provided by This Package
+================================
+
+DSO name                | Plugin name             | Descrition
+---------------------------------------------------------------------------------------------
+libmfx_gst_h264ve.so    | mfx_gst_h264ve          | Media SDK H.264 Encoding GStreamer Plugin
+libmfx_gst_h265ve.so    | mfx_gst_h265ve          | Media SDK H.265 Encoding GStreamer Plugin
+libmfx_gst_jpegve.so    | mfx_gst_jpegve          | Media SDK JPEG Encoding GStreamer Plugin
+libmfx_gst_vpp.so       | mfx_gst_vpp             | Media SDK VPP GStreamer Plugin
+libmfx_gst_h264vd.so    | mfx_gst_h264vd          | Media SDK H.264 Decoding GStreamer Plugin
+
+
+Useful Commands
+===============
+
+- To load plugins in some GStreamer apps:
+export GST_PLUGIN_PATH_1_0=/path/to/plugins/folder
+
+- To check plugin visibility to GStreamer:
+gst-inspect-1.0 --exists mfx_gst_h264ve; echo $?
+
+- Get basic information on the plugin:
+gst-inspect-1.0 --plugin mfx_gst_h264ve
+
+- Get basic information on the plugin:
+gst-inspect-1.0 mfx_gst_h264ve
+
+
+Command Line Examples
+=====================
+
+# GStreamer has built-in debug facilities controlled by --gst-debug-* options.
+# Debug levels:
+#  0 - no logging
+#  7 - maximum level
+gst-launch-1.0 --gst-debug-no-color --gst-debug-level=7 filesrc location=in.file ! filesink location=out.file
+
+# Encode input YUV file with scaling by AVC encoder, Media SDK VPP and Encoder are used.
+# VPP accepts system memory and produces video memory to the encoder
+gst-launch-1.0 \
+  filesrc location=foreman_352x288_300.yuv ! \
+  videoparse format=nv12 width=352 height=288 framerate=30/1 ! \
+  mfx_gst_vpp memory=video width=1280 height=720 ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=8000 GopRefDist=1 ! \
+  qtmux ! \
+  filesink location=mfx_out_foreman.mp4
+
+# Encode input YUV file to HEVC and mux it to MKV.
+gst-launch-1.0 \
+  filesrc location=foreman_352x288_300.yuv ! \
+  videoparse format=nv12 width=352 height=288 framerate=30/1 ! \
+  mfx_gst_h265ve QPI=10 QPP=15 QPB=15 ! \
+  matroskamux ! \
+  filesink location=output.mkv
+
+# Encode input YUV file to JPEG and mux it to AVI.
+gst-launch-1.0 \
+  filesrc location=foreman_352x288_300.yuv ! \
+  videoparse format=nv12 width=352 height=288 framerate=30/1 ! \
+  mfx_gst_jpegve Quality=50 ! \
+  avimux ! \
+  filesink location=output.avi
+
+# Encode input YUV file with scaling by AVC encoder, Media SDK VPP and Encoder are used.
+# There are 2 VPP plugins. The first one works in passthrough mode. The second one works via MediaSDK.
+# The First VPP accepts system memory and produces video memory to the second VPP
+gst-launch-1.0 \
+  filesrc location=foreman_352x288_300.yuv ! \
+  videoparse format=nv12 width=352 height=288 framerate=30/1 ! \
+  mfx_gst_vpp passthrough=on memory=video ! \
+  mfx_gst_vpp memory=video width=1280 height=720 ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=8000 GopRefDist=1 ! \
+  qtmux ! \
+  filesink location=mfx_out_foreman.mp4
+
+# Perform CSC YV12 -> NV12 with synthetic YUV data source and then encode it.
+gst-launch-1.0 \
+  videotestsrc num-buffers=150 ! \
+  video/x-raw,format=YV12,width=1280,height=720,framerate=30/1 ! \
+  mfx_gst_vpp memory=video width=1280 height=720 ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=3000 GopRefDist=1 !  \
+  qtmux ! \
+  filesink location=videotest.mp4
+
+# Perform CSC BGRA -> NV12 with synthetic YUV data source and then encode it.
+gst-launch-1.0 \
+  videotestsrc num-buffers=150 ! \
+  video/x-raw,format=BGRA,width=1280,height=720,framerate=30/1 ! \
+  mfx_gst_vpp memory=video width=1280 height=720 ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=3000 GopRefDist=1 !  \
+  qtmux ! \
+  filesink location=videotest.mp4
+
+# Perform CSC I420->NV12 from camera source and then encode it.
+gst-launch-1.0 \
+  v4l2src num-buffers=150 ! \
+  video/x-raw,format=I420,width=1280,height=720,framerate=30/1 ! \
+  mfx_gst_vpp memory=video width=1280 height=720 ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=5000 GopRefDist=1 ! \
+  qtmux ! \
+  filesink location=camera_i420.mp4
+
+# Demux and decode from input MP4 file to YUV file.
+# Decoder produces system memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=system ! \
+  filesink location=output.yuv
+
+# Demux and decode from input MP4 file then do screen rendering.
+# Decoder produces system memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=system ! \
+  glimagesink
+
+# Demux and decode from input MP4 file to fakesink.
+# Decoder produces video memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=video ! \
+  fakesink
+
+# Decode input MP4 and resize raw data.
+# Decoder produces video memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=video ! \
+  mfx_gst_vpp width=352 height=288 memory=system ! \
+  filesink location=output.yuv
+
+# Decode input MP4 and resize raw data.
+# Decoder produces system memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=system ! \
+  mfx_gst_vpp width=352 height=288 memory=system ! \
+  filesink location=output.yuv
+
+# Decode, resize and do screen rendering.
+# Decoder produces video memory.
+# VPP produces system memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=video ! \
+  mfx_gst_vpp width=352 height=288 memory=system ! \
+  glimagesink
+
+# Full transcode: demux->decode->vpp->encode->mux.
+# VPP performs downscaling.
+# All components work with video memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=video ! \
+  mfx_gst_vpp width=720 height=480 memory=video ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=2000 GopRefDist=1 ! \
+  qtmux ! \
+  filesink location=output.mp4
+
+# Full transcode: demux->decode->vpp->encode->mux.
+# VPP performs downscaling.
+# All components work with system memory.
+gst-launch-1.0 \
+  filesrc location=input.mp4 ! \
+  qtdemux ! \
+  mfx_gst_h264vd memory=system ! \
+  mfx_gst_vpp width=720 height=480 memory=system ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=2000 GopRefDist=1 ! \
+  qtmux ! \
+  filesink location=output.mp4
+
+# Deinterlacing.
+gst-launch-1.0 \
+  filesrc location=in.yuv ! \
+  videoparse format=i420 width=720 height=480 framerate=30/1 !
+  interlace field-pattern=2 top-field-first=true ! \
+  mfx_gst_vpp width=640 height=480 di=bob ! \
+  glimagesink
+
+# Field weaving. This is artificial command line to check field weaving support.
+# We treat each frame as a half of the whole picture (one field). So, resulted image will have doubled height.
+gst-launch-1.0 \
+  videotestsrc pattern=18 ! \
+  video/x-raw,format=YUY2,width=720,height=480,framerate=60/1,interlace-mode=interleaved ! \
+  mfx_gst_vpp di=weaving ! \
+  glimagesink
+
+# RTP streaming
+# Sender side:
+gst-launch-1.0 \
+  filesrc location=in.yuv ! \
+  videoparse format=nv12 width=720 height=480 framerate=30/1 ! \
+  mfx_gst_vpp width=640 height=480 memory=video ! \
+  mfx_gst_h264ve RateControlMethod=cbr TargetKbps=3000 GopRefDist=1 ! \
+  rtph264pay config-interval=10 pt=96 ! udpsink host=127.0.0.1 port=5003
+
+# Receiver side:
+gst-launch-1.0 \
+  udpsrc port=5003 \
+  caps = "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264, payload=(int)96" ! \
+  rtph264depay ! \
+  h264parse ! \
+  "video/x-h264, stream-format=byte-stream" ! \
+  filesink location=test.264

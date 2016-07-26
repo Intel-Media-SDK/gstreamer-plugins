@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,26 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#ifndef __MFX_VAAPI_DEBUG_H__
+#define __MFX_VAAPI_DEBUG_H__
+
+#include "mfx_debug.h"
+#include <va/va.h>
+#include <va/va_drm.h>
+
+MFX_DEBUG_DECLARE_VALUE_DESC_PRINTF(VAStatus)
+
+#if MFX_DEBUG == MFX_DEBUG_YES
+
+#define MFX_DEBUG_TRACE__VAStatus(_e) printf_VAStatus(MFX_DEBUG_TRACE_VAR, #_e, _e)
+
+#else // #if MFX_DEBUG == MFX_DEBUG_YES
+
+#define MFX_DEBUG_TRACE__VAStatus(_e)
+
+#endif // #if MFX_DEBUG == MFX_DEBUG_YES
+
+#endif

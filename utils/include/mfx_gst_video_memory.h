@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,37 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#ifndef __MFX_GST_VIDEO_MEMORY_H__
+#define __MFX_GST_VIDEO_MEMORY_H__
+
+#include "mfx_gst_debug.h"
+#include "mfx_gst_utils.h"
+
+#define GST_MFX_FRAME_SURFACE_MEMORY_NAME "mfxFrameSurface"
+#define GST_CAPS_FEATURE_MFX_FRAME_SURFACE_MEMORY "memory:mfxFrameSurface"
+
+// TODO these definitions should be hidden
+struct GstMfxFrameSurfaceMemory
+{
+  GstMemory mem;
+  mfxFrameSurface1 mfx_surface;
+};
+
+struct GstMfxMemoryAllocator
+{
+  GstAllocator parent;
+  MFXFrameAllocator* mfx_allocator;
+  mfxFrameAllocRequest request;
+  mfxFrameAllocResponse response;
+  mfxU32 num_frames_used;
+};
+
+struct GstMfxMemoryAllocatorClass
+{
+  GstAllocatorClass parent_class;
+};
+
+#endif

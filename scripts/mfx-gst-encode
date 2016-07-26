@@ -1,0 +1,39 @@
+#!/bin/bash
+
+while [[ $# > 1 ]]
+do
+key="$1"
+case $key in
+  -w|--width)
+  WIDTH="$2"
+  shift
+  ;;
+  -h|--height)
+  HEIGHT="$2"
+  shift
+  ;;
+  -i)
+  IN="$2"
+  shift
+  ;;
+  -o)
+  OUT="$2"
+  shift
+  ;;
+  *)
+  # RODO this does not work: why?
+  echo "unknown option: $2"
+  exit 1
+  ;;
+esac
+shift
+done
+
+echo "Encoding parameters:"
+echo "WIDTH  = $WIDTH"
+echo "HEIGHT = $HEIGHT"
+echo "IN     = $IN"
+echo "OUT    = $OUT"
+echo
+
+gst-launch-1.0 filesrc location=$IN ! videoparse format=nv12 width=$WIDTH height=$HEIGHT ! mfx_gst_h264ve ! filesink location=$OUT

@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,11 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#include "mfx_gst_caps.h"
+
+G_BEGIN_DECLS
+
+G_END_DECLS

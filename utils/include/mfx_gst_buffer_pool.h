@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,18 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#ifndef __MFX_GST_BUFFER_POOL_H__
+#define __MFX_GST_BUFFER_POOL_H__
+
+#include "mfx_gst_debug.h"
+
+G_BEGIN_DECLS
+
+extern GstBufferPool* gst_mfx_buffer_pool_new(void);
+
+G_END_DECLS
+
+#endif

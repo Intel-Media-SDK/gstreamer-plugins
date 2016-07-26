@@ -1,3 +1,5 @@
+/**********************************************************************************
+
 Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,3 +23,28 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+**********************************************************************************/
+
+#ifndef __MFX_GST_CONTEXT_H__
+#define __MFX_GST_CONTEXT_H__
+
+#include "mfx_gst_debug.h"
+
+G_BEGIN_DECLS
+
+#define GST_MFX_VA_DISPLAY_CONTEXT_TYPE "GstMfxVaDisplayType"
+
+typedef struct _GstMfxVaDisplay GstMfxVaDisplay;
+
+extern GstMfxVaDisplay * mfx_gst_va_display_new(void);
+extern gboolean mfx_gst_va_display_is_valid(GstMfxVaDisplay* display);
+extern VADisplay mfx_gst_va_display_get_VADisplay(GstMfxVaDisplay* display);
+
+extern GstContext* mfx_gst_query_context(GstElement * element, const gchar * context_type);
+extern gboolean mfx_gst_set_context_in_query(GstQuery * query, GstMfxVaDisplay * display);
+extern gboolean mfx_gst_get_contextdata(GstContext *context, GstMfxVaDisplay** display);
+
+G_END_DECLS
+
+#endif
