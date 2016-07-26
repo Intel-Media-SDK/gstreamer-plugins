@@ -1,5 +1,0 @@
-GStreamer Encoder Plugin:
-[1] Limit size of input queue
-[2] Implement output buffer pool
-[3] Cleanup C++ code in C scopes: remove possibility to throw exceptions
-[4] Implement encoder configuration setting support: gop, rate control mode, bitrate/qp, etc.
