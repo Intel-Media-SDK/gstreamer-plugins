@@ -811,8 +811,8 @@ GstCaps* mfxGstPluginVencData::GetOutCaps(GstCaps * allowed_caps)
   const char * mime = mfx_codecid_to_mime(enc_video_params_.mfx.CodecId);
 
   out_caps = gst_caps_new_simple(mime,
-      "width", G_TYPE_INT, enc_video_params_.mfx.FrameInfo.Width,
-      "height", G_TYPE_INT, enc_video_params_.mfx.FrameInfo.Height,
+      "width", G_TYPE_INT, enc_video_params_.mfx.FrameInfo.CropW,
+      "height", G_TYPE_INT, enc_video_params_.mfx.FrameInfo.CropH,
       "framerate", GST_TYPE_FRACTION,  enc_video_params_.mfx.FrameInfo.FrameRateExtN, enc_video_params_.mfx.FrameInfo.FrameRateExtD,
       "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
       NULL);
