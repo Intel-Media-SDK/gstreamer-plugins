@@ -38,6 +38,8 @@ namespace MfxLoader
 SimpleLoader::SimpleLoader(const char * name)
 {
     so_handle = dlopen(name, RTLD_GLOBAL | RTLD_NOW);
+    if (!so_handle)
+        throw std::runtime_error("Can't find library");
 }
 
 void * SimpleLoader::GetFunction(const char * name)
@@ -65,7 +67,7 @@ SimpleLoader::~SimpleLoader()
 
 #if defined(LIBVA_SUPPORT)
 VA_Proxy::VA_Proxy()
-    : lib("libva.so.1")
+    : lib("libva.so")
     , SIMPLE_LOADER_FUNCTION(vaInitialize)
     , SIMPLE_LOADER_FUNCTION(vaTerminate)
     , SIMPLE_LOADER_FUNCTION(vaCreateSurfaces)
