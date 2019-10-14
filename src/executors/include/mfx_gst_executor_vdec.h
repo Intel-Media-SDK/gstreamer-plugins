@@ -63,13 +63,11 @@ public:
 
   // Function initializes mediasdk session, checks for HW support...
   // It performes everything which can be done knowing nothing about the
-  // encoded content and settings.
+  // content types and settings.
   bool InitBase();
   // Function checks caps and stores them as initialization parameters
   // if they are ok.
   bool CheckAndSetCaps(GstCaps* caps);
-  // Function initializes encoder with the previously accumulated parameters.
-  bool Init();
   // Releases all resources, closes mediasdk session...
   // State of the object is as it was before InitBase() call.
   void Dispose();
@@ -127,7 +125,11 @@ protected:
   void TaskThread_DecodeTask(std::shared_ptr<InputData> input_data);
   void TaskThread_EosTask();
 
-  mfxStatus DecodeHeader(mfxBitstream * bst);
+  // Function parses bistream headers and fills mfxVideoParam structure
+  bool FillVideoParams(MfxVideoParamWrap & params);
+
+  // Function initializes decoder with the input parameters.
+  bool Init(MfxVideoParamWrap & params);
 
   void DecodeFrameAsync();
 
@@ -188,6 +190,8 @@ protected:
   MemType memType_;
 
   MfxVideoParamWrap dec_video_params_;
+
+  bool is_dec_initialized_;
 
   mfxU16 dec_frame_order_;
   std::atomic_uint pending_tasks_num_;
