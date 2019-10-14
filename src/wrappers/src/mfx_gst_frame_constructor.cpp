@@ -1,6 +1,6 @@
 /**********************************************************************************
 
-Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
+Copyright (C) 2005-2019 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -123,9 +123,9 @@ mfxBitstream * IMfxGstFrameConstuctor::GetMfxBitstream(void)
 {
   MFX_DEBUG_TRACE_FUNC;
 
-  mfxBitstream * bst = NULL;
+  mfxBitstream * bst = nullptr;
 
-  mfxBitstream * loaded_bst = current_bst_.get() ? current_bst_->bst() : NULL;
+  auto loaded_bst = current_bst_ ? current_bst_->bst() : nullptr;
 
   if (buffered_bst_.Data && buffered_bst_.DataLength) {
       bst = &buffered_bst_;
@@ -145,7 +145,41 @@ mfxBitstream * IMfxGstFrameConstuctor::GetMfxBitstream(void)
 
 /*------------------------------------------------------------------------------*/
 
-mfxStatus MfxGstAVCFrameConstuctor::LoadToNativeFormat(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref, bool header)
+IMfxGstFrameConstuctor* MfxGstFrameConstuctorFactory::CreateFrameConstuctor(MfxGstFrameConstuctorType type)
+{
+    IMfxGstFrameConstuctor* fc = nullptr;
+    if (MfxGstFC_NoChange == type) {
+        fc = new MfxGstFrameConstuctor;
+    } else if (MfxGstFC_AVCC == type) {
+        fc = new MfxGstAVCFrameConstuctorAVCC;
+    }
+    return fc;
+}
+
+/*------------------------------------------------------------------------------*/
+
+mfxStatus MfxGstFrameConstuctor::LoadToNativeFormat(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref, bool /*header*/)
+{
+  MFX_DEBUG_TRACE_FUNC;
+  mfxStatus sts = MFX_ERR_NONE;
+
+  auto bst = bst_ref ? bst_ref->bst() : nullptr;
+
+  if (buffered_bst_.DataLength) {
+    sts = buffered_bst_.Append(bst);
+    current_bst_.reset();
+  }
+  else {
+    current_bst_ = bst_ref;
+  }
+
+  MFX_DEBUG_TRACE_I32(sts);
+  return sts;
+}
+
+/*------------------------------------------------------------------------------*/
+
+mfxStatus MfxGstAVCFrameConstuctorAVCC::LoadToNativeFormat(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref, bool header)
 {
   MFX_DEBUG_TRACE_FUNC;
   mfxStatus sts = MFX_ERR_NONE;
@@ -154,7 +188,7 @@ mfxStatus MfxGstAVCFrameConstuctor::LoadToNativeFormat(std::shared_ptr<mfxGstBit
     ConstructHeader(bst_ref);
   }
   else {
-    mfxBitstream * bst = bst_ref.get() ? bst_ref->bst() : NULL;
+    auto * bst = bst_ref ? bst_ref->bst() : nullptr;
 
     convert_avcc_to_bytestream(bst);
 
@@ -171,7 +205,7 @@ mfxStatus MfxGstAVCFrameConstuctor::LoadToNativeFormat(std::shared_ptr<mfxGstBit
   return sts;
 }
 
-mfxStatus MfxGstAVCFrameConstuctor::ConstructHeader(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref)
+mfxStatus MfxGstAVCFrameConstuctorAVCC::ConstructHeader(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref)
 {
   MFX_DEBUG_TRACE_FUNC;
   mfxStatus sts = MFX_ERR_NONE;
@@ -303,16 +337,3 @@ mfxStatus MfxGstAVCFrameConstuctor::ConstructHeader(std::shared_ptr<mfxGstBitstr
   _done:
   return sts;
 }
-
-
-IMfxGstFrameConstuctor* MfxGstFrameConstuctorFactory::CreateFrameConstuctor(MfxGstFrameConstuctorType type)
-{
-    IMfxGstFrameConstuctor* fc = NULL;
-    if (MfxGstFC_AVC == type)
-    {
-        fc = new MfxGstAVCFrameConstuctor;
-        return fc;
-    }
-    return NULL;
-}
-

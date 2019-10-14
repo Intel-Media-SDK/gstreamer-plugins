@@ -1,6 +1,6 @@
 /**********************************************************************************
 
-Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
+Copyright (C) 2005-2019 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -33,17 +33,16 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 enum MfxGstBitstreamState
 {
-    MfxGstBS_HeaderAwaiting = 0,
-    MfxGstBS_HeaderCollecting = 1,
-    MfxGstBS_HeaderObtained = 2,
-    MfxGstBS_Resetting = 3,
+  MfxGstBS_HeaderAwaiting = 0,
+  MfxGstBS_HeaderCollecting = 1,
+  MfxGstBS_HeaderObtained = 2,
+  MfxGstBS_Resetting = 3,
 };
 
 enum MfxGstFrameConstuctorType
 {
-    MfxGstFC_None,
-    MfxGstFC_NoChange,
-    MfxGstFC_AVC
+  MfxGstFC_NoChange,
+  MfxGstFC_AVCC
 };
 
 class IMfxGstFrameConstuctor
@@ -165,21 +164,31 @@ private:
 };
 
 
-class MfxGstAVCFrameConstuctor : public IMfxGstFrameConstuctor
+class MfxGstFrameConstuctor : public IMfxGstFrameConstuctor
 {
 public:
-    MfxGstAVCFrameConstuctor() {}
-    virtual ~MfxGstAVCFrameConstuctor(void) {}
+  MfxGstFrameConstuctor() = default;
+  MfxGstFrameConstuctor(const MfxGstFrameConstuctor&) = delete;
+  MfxGstFrameConstuctor& operator=(const MfxGstFrameConstuctor&) = delete;
+
+  virtual ~MfxGstFrameConstuctor(void) = default;
+
+protected:
+  virtual mfxStatus LoadToNativeFormat(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref, bool header);
+};
+
+class MfxGstAVCFrameConstuctorAVCC : public IMfxGstFrameConstuctor
+{
+public:
+  MfxGstAVCFrameConstuctorAVCC() = default;
+  MfxGstAVCFrameConstuctorAVCC(const MfxGstAVCFrameConstuctorAVCC&) = delete;
+  MfxGstAVCFrameConstuctorAVCC& operator=(const MfxGstAVCFrameConstuctorAVCC&) = delete;
+  virtual ~MfxGstAVCFrameConstuctorAVCC(void) = default;
 
 protected:
   virtual mfxStatus LoadToNativeFormat(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref, bool header);
   mfxStatus ConstructHeader(std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref);
-
-private:
-  MfxGstAVCFrameConstuctor(const MfxGstAVCFrameConstuctor&);
-  MfxGstAVCFrameConstuctor& operator=(const MfxGstAVCFrameConstuctor&);
 };
-
 
 class MfxBitstreamLoader
 {

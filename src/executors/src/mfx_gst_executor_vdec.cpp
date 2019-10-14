@@ -1,6 +1,6 @@
 /**********************************************************************************
 
-Copyright (C) 2005-2016 Intel Corporation.  All rights reserved.
+Copyright (C) 2005-2019 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -236,7 +236,7 @@ bool mfxGstPluginVdecData::CheckAndSetCaps(GstCaps* caps)
     MFX_IOPATTERN_OUT_VIDEO_MEMORY :
     MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 
-  fc_ = MfxGstFrameConstuctorFactory::CreateFrameConstuctor(MfxGstFC_AVC);
+  fc_ = MfxGstFrameConstuctorFactory::CreateFrameConstuctor(MfxGstFC_AVCC);
 
   const GValue * val;
   GstBuffer * buffer = NULL;
