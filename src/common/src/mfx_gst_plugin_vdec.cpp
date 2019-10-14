@@ -144,14 +144,23 @@ gboolean mfx_gst_plugin_vdec_input_event(mfx_GstPad *mfxpad, mfx_GstPlugin *plug
 
   mfxGstPluginVdecData* vdec = (mfxGstPluginVdecData*)plugin->data;
 
-  if (GST_EVENT_CAPS == event->type) {
+  if (GST_EVENT_STREAM_START == event->type) {
+    if (!vdec->StartTaskThread()) {
+      MFX_DEBUG_TRACE_MSG("failed to start encoding task thread");
+      return FALSE;
+    }
+    if (!vdec->StartSyncThread()) {
+      MFX_DEBUG_TRACE_MSG("failed to start encoding sync thread");
+      return FALSE;
+    }
+    return true;
+  } else if (GST_EVENT_CAPS == event->type) {
     MFX_DEBUG_TRACE_MSG("GST_EVENT_CAPS");
 
-    GstCaps* caps = NULL;
-    GstCaps* src_caps = NULL;
-
+    GstCaps* caps = nullptr;
     gst_event_parse_caps(event, &caps);
     MFX_DEBUG_TRACE_P(caps);
+
     if (!caps || !gst_caps_is_fixed(caps)) {
       MFX_DEBUG_TRACE_MSG("no caps or they are not fixed");
       return FALSE;
@@ -161,26 +170,13 @@ gboolean mfx_gst_plugin_vdec_input_event(mfx_GstPad *mfxpad, mfx_GstPlugin *plug
       MFX_DEBUG_TRACE_MSG("failed to initialize");
       return FALSE;
     }
-    if (!vdec->Init()) {
-      MFX_DEBUG_TRACE_MSG("failed to initialize");
-      return FALSE;
-    }
-    if (!vdec->StartTaskThread()) {
-      MFX_DEBUG_TRACE_MSG("failed to start encoding task thread");
-      return FALSE;
-    }
-    if (!vdec->StartSyncThread()) {
-      MFX_DEBUG_TRACE_MSG("failed to start encoding sync thread");
-      return FALSE;
-    }
-
-    mfx_GstPad* srcpad = mfx_gst_plugin_get_pad_by_direction(plugin, GST_PAD_SRC);
-    if (!srcpad) {
+    auto src_pad = mfx_gst_plugin_get_pad_by_direction(plugin, GST_PAD_SRC);
+    if (!src_pad) {
       MFX_DEBUG_TRACE_MSG("bug: no source pad!");
       return FALSE;
     }
-    src_caps = vdec->CreateOutCaps();
-    gboolean ret = gst_pad_set_caps(srcpad->pad, src_caps);
+    auto src_caps = vdec->CreateOutCaps();
+    gboolean ret = gst_pad_set_caps(src_pad->pad, src_caps);
     if (!ret) {
       MFX_DEBUG_TRACE_MSG("failed to set pad caps!");
       return FALSE;
@@ -188,8 +184,7 @@ gboolean mfx_gst_plugin_vdec_input_event(mfx_GstPad *mfxpad, mfx_GstPlugin *plug
     gst_caps_unref(src_caps);
 
     return ret;
-  }
-  else if (GST_EVENT_EOS == event->type) {
+  } else if (GST_EVENT_EOS == event->type) {
     MFX_DEBUG_TRACE_MSG("GST_EVENT_EOS");
     if (vdec->PostEndOfStreamTask(
       std::bind(

@@ -47,6 +47,7 @@ mfxGstPluginVdecData::mfxGstPluginVdecData(mfx_GstPlugin* plugin)
   , allocator_(NULL)
   , allocator_params_(NULL)
   , memType_(SYSTEM_MEMORY)
+  , is_dec_initialized_(false)
   , dec_frame_order_(0)
   , pending_tasks_num_(0)
   , syncop_tasks_num_(0)
@@ -59,9 +60,14 @@ mfxGstPluginVdecData::mfxGstPluginVdecData(mfx_GstPlugin* plugin)
 {
   MFX_DEBUG_TRACE_FUNC;
 
+  dec_video_params_.mfx.CodecId                 = MFX_CODEC_AVC;
   dec_video_params_.mfx.FrameInfo.FrameRateExtN = msdk_default_framerate;
   dec_video_params_.mfx.FrameInfo.FrameRateExtD = 1;
   dec_video_params_.mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
+  dec_video_params_.mfx.FrameInfo.AspectRatioW  = 1;
+  dec_video_params_.mfx.FrameInfo.AspectRatioH  = 1;
+  dec_video_params_.mfx.FrameInfo.FourCC        = MFX_FOURCC_NV12;
+  dec_video_params_.mfx.FrameInfo.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
 
   for (size_t i=0; i < plg_->props_n; ++i) {
     if (!(plg_->props[i].usage | MfxGstPluginProperty::uInit)) continue;
@@ -69,6 +75,7 @@ mfxGstPluginVdecData::mfxGstPluginVdecData(mfx_GstPlugin* plugin)
     switch(plg_->props[i].id) {
       case PROP_MemoryType:
         memType_ = (MemType)plg_->props[i].vEnum.def;
+        dec_video_params_.IOPattern = (VIDEO_MEMORY == memType_) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
         break;
       case PROP_AsyncDepth:
         dec_video_params_.AsyncDepth = plg_->props[i].vInt.def;
@@ -162,8 +169,6 @@ bool mfxGstPluginVdecData::InitBase()
     }
   }
 
-  dec_video_params_.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-
   dec_ = new MFXVideoDECODE(session_);
   MFX_DEBUG_TRACE_P(dec_);
   if (!dec_) {
@@ -196,15 +201,12 @@ bool mfxGstPluginVdecData::CheckAndSetCaps(GstCaps* caps)
   gint width, height, framerate_n, framerate_d;
   const GstStructure *gststruct;
 
-  if (!caps || !gst_caps_is_fixed(caps)) {
-    MFX_DEBUG_TRACE_MSG("no caps or they are not fixed");
-    return FALSE;
-  }
+  MfxVideoParamWrap new_params = dec_video_params_;
 
   gststruct = gst_caps_get_structure(caps, 0);
   if (!gststruct) {
     MFX_DEBUG_TRACE_MSG("no caps structure");
-    return FALSE;
+    goto _error;
   }
   {
     gchar* str = NULL;
@@ -215,7 +217,7 @@ bool mfxGstPluginVdecData::CheckAndSetCaps(GstCaps* caps)
       !gst_structure_get_int(gststruct, "height", &height) ||
       !gst_structure_get_fraction(gststruct, "framerate", &framerate_n, &framerate_d)) {
     MFX_DEBUG_TRACE_MSG("failed to get required field(s) from the caps structure");
-    return FALSE;
+    goto _error;
   }
 
   MFX_DEBUG_TRACE_I32(width);
@@ -223,69 +225,112 @@ bool mfxGstPluginVdecData::CheckAndSetCaps(GstCaps* caps)
   MFX_DEBUG_TRACE_I32(framerate_n);
   MFX_DEBUG_TRACE_I32(framerate_d);
 
-  dec_video_params_.mfx.CodecId = MFX_CODEC_AVC;
-  dec_video_params_.mfx.FrameInfo.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
-  dec_video_params_.mfx.FrameInfo.Width = (mfxU16)width;
-  dec_video_params_.mfx.FrameInfo.Height = (mfxU16)height;
-  dec_video_params_.mfx.FrameInfo.CropW = (mfxU16)width;
-  dec_video_params_.mfx.FrameInfo.CropH = (mfxU16)height;
-  dec_video_params_.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
+  new_params.mfx.FrameInfo.Width  = (mfxU16)width;
+  new_params.mfx.FrameInfo.Height = (mfxU16)height;
+  new_params.mfx.FrameInfo.CropW  = (mfxU16)width;
+  new_params.mfx.FrameInfo.CropH  = (mfxU16)height;
 
-  dec_video_params_.IOPattern = 0;
-  dec_video_params_.IOPattern |= (VIDEO_MEMORY == memType_) ?
-    MFX_IOPATTERN_OUT_VIDEO_MEMORY :
-    MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+  if (nullptr == fc_) {
+    auto stream_format_str = gst_structure_get_string(gststruct, "stream-format");
+    if (!stream_format_str) {
+      MFX_DEBUG_TRACE_MSG("can't detect stream-format");
+      goto _error;
+    }
 
-  fc_ = MfxGstFrameConstuctorFactory::CreateFrameConstuctor(MfxGstFC_AVCC);
+    auto format = mfx_stream_format_from_fourcc(stream_format_str);
+
+    MfxGstFrameConstuctorType fc_type;
+    switch (format) {
+    case MFX_STREAM_FORMAT_ANNEX_B:
+      fc_type = MfxGstFC_NoChange;
+      break;
+    case MFX_STREAM_FORMAT_AVCC:
+      fc_type = MfxGstFC_AVCC;
+      break;
+    default:
+      MFX_DEBUG_TRACE_MSG("can't find proper stream-format");
+      goto _error;
+    }
+
+    fc_ = MfxGstFrameConstuctorFactory::CreateFrameConstuctor(fc_type);
+  }
 
   const GValue * val;
-  GstBuffer * buffer = NULL;
   if ((val = gst_structure_get_value(gststruct, "codec_data"))) {
-    buffer = gst_value_get_buffer(val);
+    auto buffer = gst_value_get_buffer(val);
 
     std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref;
     bst_ref.reset(new mfxGstBitstreamBufferRef(buffer));
 
-    mfxBitstream * codec_data = bst_ref.get() ? bst_ref->bst() : NULL;
-    if (codec_data) {
+    if (bst_ref->bst()) {
       MfxBitstreamLoader loader(fc_);
       loader.LoadBuffer(bst_ref, true);
 
+      // #1: Parse provided bitstream headers
       mfxBitstream * bst = fc_->GetMfxBitstream();
       bst->DataFlag = MFX_BITSTREAM_COMPLETE_FRAME;
-      if (MFX_ERR_NONE != DecodeHeader(bst)) {
-        MFX_DEBUG_TRACE_MSG("FALSE: can't decode codec_data");
-        return false;
-      }
-      bst->DataFlag = 0;
-    }
-    else {
-      MFX_DEBUG_TRACE_MSG("FALSE");
-      return false;
-    }
 
+      MFX_DEBUG_TRACE_MSG("Calling DecodeHeader");
+      if (bst) {
+          MFX_DEBUG_TRACE_I32(bst->DataLength);
+          MFX_DEBUG_TRACE_I32(bst->DataOffset);
+      } else {
+        MFX_DEBUG_TRACE_MSG("mfxBitstream is null");
+      }
+
+      auto sts = dec_->DecodeHeader(bst, &new_params);
+      MFX_DEBUG_TRACE_mfxStatus(sts);
+
+      bst->DataFlag = 0;
+
+      if (MFX_ERR_NONE != sts) {
+        MFX_DEBUG_TRACE_MSG("codec_data parsing failed");
+        goto _error;
+      }
+
+      // #2: Check obtained params
+      dec_->Query(&new_params, &new_params);
+      if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
+        sts = MFX_ERR_NONE;
+      }
+      if (MFX_ERR_NONE != sts) {
+        MFX_DEBUG_TRACE_MSG("Decoder Query failed");
+        MFX_DEBUG_TRACE_mfxStatus(sts);
+        goto _error;
+      }
+
+      if (!Init(new_params)) {
+        goto _error;
+      }
+    }
+  } else {
+    dec_video_params_ = new_params;
   }
 
   MFX_DEBUG_TRACE_MSG("TRUE");
   return true;
+
+  _error:
+  MFX_DEBUG_TRACE_MSG("FALSE");
+  return false;
 }
 
-bool mfxGstPluginVdecData::Init()
+bool mfxGstPluginVdecData::Init(MfxVideoParamWrap & params)
 {
   MFX_DEBUG_TRACE_FUNC;
   mfxStatus sts;
   mfxFrameAllocRequest alloc_request;
   MSDK_ZERO_MEM(alloc_request);
 
-  MFX_DEBUG_TRACE_mfxVideoParam_dec(dec_video_params_);
+  MFX_DEBUG_TRACE_mfxVideoParam_dec(params);
 
-  sts = dec_->QueryIOSurf(&dec_video_params_, &alloc_request);
+  sts = dec_->QueryIOSurf(&params, &alloc_request);
   if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
     sts = MFX_ERR_NONE;
   }
   if (MFX_ERR_NONE != sts) {
     MFX_DEBUG_TRACE_mfxStatus(sts);
-    MFX_DEBUG_TRACE_MSG("failed to query vpp for the required surfaces number");
+    MFX_DEBUG_TRACE_MSG("failed to query decoder for the required surfaces number");
     goto _error;
   }
 
@@ -299,7 +344,7 @@ bool mfxGstPluginVdecData::Init()
     goto _error;
   }
 
-  sts = dec_->Init(&dec_video_params_);
+  sts = dec_->Init(&params);
   if (MFX_WRN_INCOMPATIBLE_VIDEO_PARAM == sts) {
     sts = MFX_ERR_NONE;
   }
@@ -319,6 +364,8 @@ bool mfxGstPluginVdecData::Init()
     goto _error;
   }
 
+  is_dec_initialized_ = true;
+
   MFX_DEBUG_TRACE_mfxVideoParam_dec(dec_video_params_);
 
   MFX_DEBUG_TRACE_MSG("TRUE");
@@ -327,6 +374,7 @@ bool mfxGstPluginVdecData::Init()
   _error:
   frame_pool_.Close();
   dec_->Close();
+  is_dec_initialized_ = false;
   session_.Close();
   notify_error_callback_();
   MFX_DEBUG_TRACE_MSG("FALSE");
@@ -340,6 +388,7 @@ void mfxGstPluginVdecData::Dispose()
   task_thread_.stop();
   sync_thread_.stop();
   MSDK_DELETE(dec_);
+  is_dec_initialized_ = false;
   session_.Close();
   MSDK_DELETE(fc_);
   locked_frames_.clear();
@@ -362,7 +411,15 @@ void mfxGstPluginVdecData::TaskThread_DecodeTask(
   }
   cv_queue_.notify_one();
 
-  DecodeFrameAsync();
+  if (!is_dec_initialized_) {
+    if (FillVideoParams(dec_video_params_)) {
+      Init(dec_video_params_);
+    }
+  }
+
+  if (is_dec_initialized_) {
+    DecodeFrameAsync();
+  }
 }
 
 void mfxGstPluginVdecData::TaskThread_EosTask()
@@ -595,6 +652,7 @@ bool mfxGstPluginVdecData::SetProperty(
   switch (id) {
   case PROP_MemoryType:
     memType_ = (MemType)g_value_get_enum(val);
+    dec_video_params_.IOPattern = (VIDEO_MEMORY == memType_) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
     break;
   case PROP_AsyncDepth:
     dec_video_params_.AsyncDepth = g_value_get_int(val);
@@ -664,9 +722,51 @@ GstCaps* mfxGstPluginVdecData::CreateOutCaps() {
   return out_caps;
 }
 
-mfxStatus mfxGstPluginVdecData::DecodeHeader(mfxBitstream * bst)
-{
+bool mfxGstPluginVdecData::FillVideoParams(MfxVideoParamWrap & params) {
   MFX_DEBUG_TRACE_FUNC;
-  mfxStatus sts = dec_->DecodeHeader(bst, &dec_video_params_);
-  return sts;
+  auto sts = MFX_ERR_MORE_DATA;
+  std::shared_ptr<mfxGstBitstreamBufferRef> bst_ref;
+
+  auto bst = fc_->GetMfxBitstream();
+  MfxBitstreamLoader loader(fc_);
+
+  do {
+    bst_ref.reset();
+
+    if (MFX_ERR_MORE_DATA == sts) {
+      if (!input_queue_.empty()) {
+        std::shared_ptr<InputData> input_data(input_queue_.front());
+        bst_ref = input_data->bst_ref;
+        input_queue_.pop_front();
+        loader.LoadBuffer(bst_ref, false);
+        bst = fc_->GetMfxBitstream();
+      }
+    }
+
+    MFX_DEBUG_TRACE_MSG("Calling DecodeHeader");
+    if (bst) {
+        MFX_DEBUG_TRACE_I32(bst->DataLength);
+        MFX_DEBUG_TRACE_I32(bst->DataOffset);
+    } else {
+      MFX_DEBUG_TRACE_MSG("mfxBitstream is null");
+    }
+
+    sts = dec_->DecodeHeader(bst, &params);
+    MFX_DEBUG_TRACE_mfxStatus(sts);
+
+  } while (MFX_ERR_NONE != sts);
+
+  MFX_DEBUG_TRACE_mfxVideoParam_dec(params);
+
+  MFX_DEBUG_TRACE_MSG("Calling Query");
+  sts = dec_->Query(&params, &params);
+  MFX_DEBUG_TRACE_mfxStatus(sts);
+
+  if (MFX_ERR_NONE == sts) {
+     MFX_DEBUG_TRACE_MSG("TRUE");
+     return true;
+  } else {
+      MFX_DEBUG_TRACE_MSG("FALSE");
+      return false;
+  }
 }
