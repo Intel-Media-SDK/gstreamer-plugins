@@ -454,15 +454,13 @@ void mfxGstPluginVdecData::DecodeFrameAsync()
         bst_ref = input_data->bst_ref;
         input_queue_.pop_front();
         loader.LoadBuffer(bst_ref, false);
+        bst = fc_->GetMfxBitstream();
       }
-      bst = fc_->GetMfxBitstream();
-      if (!bst->DataLength) {
-        if (is_eos_) {
-          bst = NULL;
-        }
-        else {
+      // No more data in the queue
+      else if (is_eos_) {
+          bst = nullptr;
+      } else {
           break;
-        }
       }
     }
 
