@@ -153,7 +153,7 @@ gboolean mfx_gst_plugin_vdec_input_event(mfx_GstPad *mfxpad, mfx_GstPlugin *plug
       MFX_DEBUG_TRACE_MSG("failed to start encoding sync thread");
       return FALSE;
     }
-    return true;
+    return gst_pad_event_default(mfxpad->pad, (GstObject*)plugin, event);
   } else if (GST_EVENT_CAPS == event->type) {
     MFX_DEBUG_TRACE_MSG("GST_EVENT_CAPS");
 
