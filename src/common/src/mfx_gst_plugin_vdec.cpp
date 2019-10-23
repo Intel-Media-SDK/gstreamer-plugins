@@ -197,6 +197,19 @@ gboolean mfx_gst_plugin_vdec_input_event(mfx_GstPad *mfxpad, mfx_GstPlugin *plug
     // forwarding EOS right away in case we failed to post a task
     return gst_pad_event_default(mfxpad->pad, (GstObject*)plugin, event);
   }
+  else if (GST_EVENT_SEGMENT == event->type) {
+    gint64 start = 0;
+    GstSegment segment;
+    gst_event_copy_segment (event, &segment);
+
+    if (segment.format != GST_FORMAT_TIME) {
+      gst_pad_query_convert (mfxpad->pad, segment.format,
+                  segment.start, GST_FORMAT_TIME, &start);
+      segment.format = GST_FORMAT_TIME;
+      gst_event_unref (event);
+      event = gst_event_new_segment (&segment);
+    }
+  }
   return gst_pad_event_default(mfxpad->pad, (GstObject*)plugin, event);
 }
 
@@ -219,6 +232,23 @@ GstFlowReturn mfx_gst_vdec_chain(mfx_GstPad *mfxpad, mfx_GstPlugin *plugin, GstB
     return GST_FLOW_ERROR;
   }
 
+  if (GST_BUFFER_DTS (buffer) == GST_CLOCK_TIME_NONE &&
+      GST_BUFFER_PTS (buffer) == GST_CLOCK_TIME_NONE) {
+    GstClock *clock = gst_element_get_clock (&plugin->element);
+    if (clock) {
+        GstClockTime base_time =
+            gst_element_get_base_time (&plugin->element);
+        GstClockTime now = gst_clock_get_time (clock);
+        if (now > base_time)
+          now -= base_time;
+        else
+          now = 0;
+        gst_object_unref (clock);
+
+        GST_BUFFER_PTS (buffer) = now;
+        GST_BUFFER_DTS (buffer) = now;
+    }
+  }
   mfxGstPluginVdecData* vdec = (mfxGstPluginVdecData*)plugin->data;
 
   std::shared_ptr<mfxGstPluginVdecData::InputData> input_data(new mfxGstPluginVdecData::InputData);
